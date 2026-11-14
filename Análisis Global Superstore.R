@@ -144,6 +144,15 @@ f2 <- ggplot(dia, aes(fecha, ventas / 1000)) + geom_line(colour = "grey55", line
   labs(x = NULL, y = "Miles de USD", title = "Ventas diarias: los puntos rojos son días con un pedido de $10,000 o más")
 guardar_fig(f2, "fig_02_serie_diaria", h = 3.8)
 
+cal_mes <- dia %>% group_by(mes) %>% summarise(m = mean(ventas), .groups = "drop")
+cal_dia <- dia %>% group_by(dia_sem) %>% summarise(m = mean(ventas), o = mean(ordenes), .groups = "drop")
+f3a <- ggplot(cal_mes, aes(mes, m / 1000)) + geom_col(fill = OI["azul"], width = 0.7) +
+  labs(x = NULL, y = "Ventas diarias medias (miles de USD)", title = "Por mes")
+f3b <- ggplot(cal_dia, aes(dia_sem, m / 1000)) + geom_col(fill = OI["naranja"], width = 0.7) +
+  labs(x = NULL, y = NULL, title = "Por día de la semana") + theme(axis.text.x = element_text(angle = 35, hjust = 1))
+guardar_fig(f3a + f3b + plot_layout(widths = c(1.6, 1)), "fig_03_calendario", h = 3.8)
+
+
 
 
 
