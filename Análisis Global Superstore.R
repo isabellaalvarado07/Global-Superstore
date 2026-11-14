@@ -161,6 +161,14 @@ f4 <- ggplot(dm, aes(factor(mercado, levels = orden_m), ventas / 1e6, fill = cat
   theme(legend.position = "top")
 guardar_fig(f4, "fig_04_mercado_categoria", h = 4)
 
+t_mercado <- d %>% group_by(Mercado = mercado) %>%
+  summarise(`Ventas (USD)` = sum(ventas), `% de ventas` = sum(ventas) / sum(d$ventas),
+            `Utilidad (USD)` = sum(utilidad), Margen = sum(utilidad) / sum(ventas),
+            `Descuento medio` = mean(descuento), .groups = "drop") %>% arrange(desc(`Ventas (USD)`))
+guardar_tabla(t_mercado %>% mutate(`Ventas (USD)` = num(`Ventas (USD)`), `% de ventas` = pct(`% de ventas`),
+                                   `Utilidad (USD)` = num(`Utilidad (USD)`), Margen = pct(Margen),
+                                   `Descuento medio` = pct(`Descuento medio`)), "tabla_02_mercados")
+
 
 
 
