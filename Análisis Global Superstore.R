@@ -234,6 +234,44 @@ sin_ev <- function(y) lm(as.formula(paste(y, "~ descuento + ln_envio + part_tec 
 t_eventos <- tibble(Estimación = c("(2) Sales", "(4) Orders"),
                     `R² sin variables de eventos` = c(summary(sin_ev("ln_ventas"))$r.squared, summary(sin_ev("ln_ordenes"))$r.squared),
                     `R² con variables de eventos` = c(summary(m2)$r.squared, summary(m4)$r.squared))
+# =============================================================================
+# PUNTO 6. Tabla de resultados (R² y asteriscos de significancia)
+# =============================================================================
+armar_tabla <- function(coefs, terminos, nombres, resumen, controles_txt) {
+  ancho <- coefs %>% filter(termino %in% terminos) %>%
+    mutate(celda = paste0(formatC(coef, format = "f", digits = 3), estrellas(p)), ee_txt = paste0("(", formatC(ee, format = "f", digits = 3), ")"))
+  filas <- map_dfr(terminos, function(tt) {
+    a <- ancho %>% filter(termino == tt)
+    g <- function(col) map_chr(nombres, ~ { z <- a %>% filter(modelo == .x); if (nrow(z)) z[[col]] else "" })
+    bind_rows(tibble(Variable = tt, !!!set_names(as.list(g("celda")), nombres)), tibble(Variable = "", !!!set_names(as.list(g("ee_txt")), nombres)))
+  })
+  pie <- bind_rows(
+    tibble(Variable = "Observaciones", !!!set_names(as.list(num(resumen$n)), nombres)),
+    tibble(Variable = "R²", !!!set_names(as.list(formatC(resumen$r2, format = "f", digits = 3)), nombres)),
+    tibble(Variable = "R² ajustado", !!!set_names(as.list(formatC(resumen$r2_aj, format = "f", digits = 3)), nombres)),
+    tibble(Variable = "Controles", !!!set_names(as.list(controles_txt), nombres)))
+  bind_rows(filas, pie)
+}
+term_prin <- c("Constante", "Descuento (0 a 1)", "ln(envío medio por línea)", "Furniture (participación; base Office Supplies)",
+               "Technology (participación; base Office Supplies)", "Día: Sábado", "Día: Domingo",
+               "Día con pedido de $10,000 o más", "Black Friday o Cyber Monday")
+t_res <- armar_tabla(coefs, term_prin, names(modelos), resumen_mod, c("No", "Sí", "No", "Sí"))
+guardar_tabla(t_res, "tabla_05_resultados")
+orden_terminos <- unique(coefs$termino)
+write_csv(armar_tabla(coefs, orden_terminos, names(modelos), resumen_mod, c("No", "Sí", "No", "Sí")), "tablas/tabla_A1_resultados_completos.csv")
+term_panel <- c("Constante", "Descuento (0 a 1)", "ln(envío medio por línea)", "Furniture (participación; base Office Supplies)",
+                "Technology (participación; base Office Supplies)", "Día con pedido de $10,000 o más", "Black Friday o Cyber Monday",
+                paste0("Mercado: ", c("APAC", "EMEA", "EU", "LATAM", "Africa", "Canada")))
+write_csv(armar_tabla(coefs_p, term_panel, c("(A1) Sales por mercado", "(A2) Orders por mercado"), resumen_p, c("Sí", "Sí")),
+          "tablas/tabla_A4_panel_mercados.csv")
+t_mercados_beta <- coefs_p %>% filter(grepl("^Mercado", termino)) %>%
+  transmute(Modelo = modelo, Mercado = sub("Mercado: ", "", termino), Coeficiente = coef, `Efecto %` = 100 * (exp(coef) - 1), p = p)
+write_csv(t_mercados_beta, "tablas/tabla_A5_betas_mercado.csv")
+
+efecto <- function(b, delta) 100 * (exp(b * delta) - 1)
+b_desc <- sapply(modelos, function(m) unname(coef(m)["descuento"]))
+efectos <- tibble(modelo = names(modelos), beta_desc = b_desc, efecto_10pp = efecto(b_desc, 0.10),
+                  beta_envio = c(NA, coef(m2)["ln_envio"], NA, coef(m4)["ln_envio"]))
 
 
 
