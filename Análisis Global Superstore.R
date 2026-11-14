@@ -107,6 +107,26 @@ dia_m <- d %>% group_by(fecha, mercado) %>%
          ln_ventas = log(ventas), ln_ordenes = log(ordenes), ln_envio = log(envio_medio))
 
 
+# =============================================================================
+# PUNTO 2. Tabla descriptiva (N, media, desviación estándar, mínimo, máximo)
+# =============================================================================
+desc_fila <- function(x, nombre, dd = 2)
+  tibble(Variable = nombre, N = num(sum(!is.na(x))), Media = num(mean(x), dd), `Desv. est.` = num(sd(x), dd),
+         Mínimo = num(min(x), dd), Máximo = num(max(x), dd))
+t_desc <- bind_rows(
+  desc_fila(dia$ventas,       "Ventas diarias (USD)"),
+  desc_fila(dia$ordenes,      "Órdenes por día (número)", 1),
+  desc_fila(dia$descuento,    "Descuento medio del día (0 a 1)", 3),
+  desc_fila(dia$envio_medio,  "Costo de envío medio por línea (USD)"),
+  desc_fila(dia$part_tec,     "Participación de Technology en ventas del día", 3),
+  desc_fila(dia$part_mue,     "Participación de Furniture en ventas del día", 3),
+  desc_fila(dia$utilidad,     "Utilidad diaria (USD)"),
+  desc_fila(d$ventas,         "Ventas por línea de pedido (USD)"),
+  desc_fila(d$descuento,      "Descuento por línea (0 a 1)", 3))
+guardar_tabla(t_desc, "tabla_01_descriptiva")
+pct_dias_menor_20k <- mean(dia$ventas < 20000)
+
+
 
 
  
