@@ -169,6 +169,16 @@ guardar_tabla(t_mercado %>% mutate(`Ventas (USD)` = num(`Ventas (USD)`), `% de v
                                    `Utilidad (USD)` = num(`Utilidad (USD)`), Margen = pct(Margen),
                                    `Descuento medio` = pct(`Descuento medio`)), "tabla_02_mercados")
 
+t_categoria <- d %>% group_by(Categoría = categoria) %>%
+  summarise(`Ventas (USD)` = sum(ventas), `% de ventas` = sum(ventas) / sum(d$ventas),
+            `Utilidad (USD)` = sum(utilidad), Margen = sum(utilidad) / sum(ventas),
+            `Descuento medio` = mean(descuento), `% de líneas con pérdida` = mean(utilidad < 0), .groups = "drop") %>%
+  arrange(desc(`Ventas (USD)`))
+guardar_tabla(t_categoria %>% mutate(`Ventas (USD)` = num(`Ventas (USD)`), `% de ventas` = pct(`% de ventas`),
+                                     `Utilidad (USD)` = num(`Utilidad (USD)`), Margen = pct(Margen),
+                                     `Descuento medio` = pct(`Descuento medio`),
+                                     `% de líneas con pérdida` = pct(`% de líneas con pérdida`)), "tabla_03_categorias")
+
 
 
 
