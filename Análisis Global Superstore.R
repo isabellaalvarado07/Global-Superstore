@@ -137,6 +137,13 @@ f1b <- ggplot(sem, aes(semana, ordenes)) + geom_line(colour = OI["verde"], linew
   labs(x = NULL, y = "Órdenes", title = "Órdenes por semana, 2011-2014")
 guardar_fig(f1a / f1b, "fig_01_serie_semanal", h = 6)
 
+top_dias <- dia %>% filter(pedido_grande == 1)
+f2 <- ggplot(dia, aes(fecha, ventas / 1000)) + geom_line(colour = "grey55", linewidth = 0.3) +
+  geom_point(data = top_dias, colour = OI["rojo"], size = 2) +
+  geom_text(data = top_dias, aes(label = format(fecha, "%d-%b-%Y")), colour = OI["rojo"], size = 2.8, vjust = -0.7, check_overlap = TRUE) +
+  labs(x = NULL, y = "Miles de USD", title = "Ventas diarias: los puntos rojos son días con un pedido de $10,000 o más")
+guardar_fig(f2, "fig_02_serie_diaria", h = 3.8)
+
 
 
 
