@@ -1,7 +1,5 @@
 # Analisis de la base de datos Global Superstore
-# =============================================================================
-# Global Superstore: descuentos, costos de envío y rentabilidad
-# Proyecto final de Business Analytics (BA-2630)
+# Proyecto final de Business Analytics 
 #
 # Correr desde la carpeta del repositorio: source("Global-Superstore.R")
 # Lee data/Global_Superstore.xls y escribe tablas/ (CSV y PNG) y figuras/ (PNG).
@@ -528,6 +526,21 @@ fig_pais <- eo %>% mutate(nombre = es[pais]) %>%
        x = "Diferencia en órdenes por día (%)", y = NULL)
 guardar_fig(fig_pais, "fig_11_paises_ordenes")
 
+# =============================================================================
+# Cifras que lee el informe
+# =============================================================================
+claves <- list(
+  n_lineas = nrow(d), n_dias = nrow(dia), n_pedidos = n_distinct(d$id_pedido), ventas = sum(d$ventas), utilidad = sum(d$utilidad),
+  margen = sum(d$utilidad) / sum(d$ventas), pct_dias_menor_20k = pct_dias_menor_20k, asim_niveles = asim[["niveles"]], asim_logs = asim[["logs"]],
+  cruce_base = cruce_base, cruce_neto = cruce_neto, equilibrio = equilibrio, equilibrio_neto = equilibrio_neto,
+  ic_eq = ic[, 1], ic_eq_neto = ic[, 2], n_pedidos_grandes = nrow(ped_grandes), n_dias_pedido_grande = sum(dia$pedido_grande),
+  n_dias_bf = sum(dia$black_friday))
+saveRDS(list(claves = claves, coefs = coefs, coefs_p = coefs_p, resumen_mod = resumen_mod, resumen_p = resumen_p, efectos = efectos,
+             t_aporte = t_aporte, t_norm = t_norm, t_fuera = t_fuera, t_eventos = t_eventos, t_tramo = t_tramo, t_mercado = t_mercado,
+             t_categoria = t_categoria, t_log = t_log, t_mercados_beta = t_mercados_beta, envio_tot = envio_tot, t_hc3 = t_hc3, t_vif = t_vif,
+             t_pasos = t_pasos, elasticidad = elasticidad, chequeo_envio = chequeo_envio, cal_mes = cal_mes, cal_dia = cal_dia, ped_grandes = ped_grandes, t_desc = t_desc, sem = sem, t_pais = t_pais, t_pais_test = t_pais_test, pais_eo = eo, pais_ev = ev,
+             pais_n = nrow(dia_p), pais_pct = sum(paises$pedidos) / n_distinct(d$id_pedido)), "tablas/resultados.rds")
+cat("Global-Superstore.R terminado.\n")
 
 
  
