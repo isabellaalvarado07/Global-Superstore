@@ -229,7 +229,11 @@ resumen_mod <- imap_dfr(modelos, ~ tibble(modelo = .y, r2 = summary(.x)$r.square
 resumen_p <- tibble(modelo = c("(A1) Sales por mercado", "(A2) Orders por mercado"), r2 = c(summary(mp_v)$r.squared, summary(mp_o)$r.squared),
                     r2_aj = c(summary(mp_v)$adj.r.squared, summary(mp_o)$adj.r.squared), n = c(nobs(mp_v), nobs(mp_o)))
 
-
+# Efecto de los picos: R² antes y después de incorporar las variables de eventos
+sin_ev <- function(y) lm(as.formula(paste(y, "~ descuento + ln_envio + part_tec + part_mue + mes + dia_sem + anio")), dia)
+t_eventos <- tibble(Estimación = c("(2) Sales", "(4) Orders"),
+                    `R² sin variables de eventos` = c(summary(sin_ev("ln_ventas"))$r.squared, summary(sin_ev("ln_ordenes"))$r.squared),
+                    `R² con variables de eventos` = c(summary(m2)$r.squared, summary(m4)$r.squared))
 
 
 
