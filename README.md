@@ -1,5 +1,5 @@
 # Global-Superstore
-# Global Superstore es una empresa minorista que entre 2011 y 2014 vendió muebles, tecnología y suministros de oficina en siete mercados: Asia-Pacífico (APAC), Europa (EU), Estados Unidos (US), América Latina (LATAM), Europa del Este y Medio Oriente (EMEA), África y Canadá. En esos cuatro años facturó USD 12.64 millones y reportó una utilidad de USD 1.47 millones, un margen de 11.6%. El promedio esconde dos problemas: 24.5% de las líneas de pedido se vendió con pérdida, y el costo de envío acumulado, USD 1.35 millones, equivale a 10.7% de las ventas, casi lo mismo que toda la utilidad.
+# Global Superstore es una empresa minorista que entre 2011 y 2014 vendió muebles, tecnología y suministros de oficina en siete mercados: Asia-Pacífico (APAC), Europa (EU), Estados Unidos (US), América Latina (LATAM), Europa del Este y Medio Oriente (EMEA), África y Canadá. 
 
 Pregunta problema de la investigación 
 
