@@ -221,6 +221,13 @@ etiqueta <- function(t) {
          pedido_grande = "Día con pedido de $10,000 o más", black_friday = "Black Friday o Cyber Monday")
   t
 }
+coefs <- imap_dfr(modelos, function(m, nm) tidy(m) %>% transmute(modelo = nm, termino = etiqueta(term), coef = estimate, ee = std.error, p = p.value))
+coefs_p <- bind_rows(tidy(mp_v) %>% mutate(modelo = "(A1) Sales por mercado"), tidy(mp_o) %>% mutate(modelo = "(A2) Orders por mercado")) %>%
+  transmute(modelo, termino = etiqueta(term), coef = estimate, ee = std.error, p = p.value)
+resumen_mod <- imap_dfr(modelos, ~ tibble(modelo = .y, r2 = summary(.x)$r.squared, r2_aj = summary(.x)$adj.r.squared,
+                                          n = nobs(.x), sigma = summary(.x)$sigma, k = length(coef(.x)) - 1))
+resumen_p <- tibble(modelo = c("(A1) Sales por mercado", "(A2) Orders por mercado"), r2 = c(summary(mp_v)$r.squared, summary(mp_o)$r.squared),
+                    r2_aj = c(summary(mp_v)$adj.r.squared, summary(mp_o)$adj.r.squared), n = c(nobs(mp_v), nobs(mp_o)))
 
 
 
