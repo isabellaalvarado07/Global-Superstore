@@ -42,5 +42,39 @@ guardar_tabla <- function(df, nombre, ancho_col = NULL) {
 guardar_fig <- function(p, nombre, w = 7.5, h = 4.6)
   ggsave(file.path("figuras", paste0(nombre, ".png")), p, width = w, height = h, dpi = 200, bg = "white")
 
+# =============================================================================
+# PUNTO 1. Datos y preparación
+# =============================================================================
+bruto <- read_excel("data/Global_Superstore.xls", sheet = "Orders")
+meses <- c("Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic")
+dias_sem <- c("Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo")
+
+d <- bruto %>%
+  transmute(id_pedido = `Order ID`, fecha = as.Date(`Order Date`), id_producto = `Product ID`,
+            mercado = Market, pais = Country, categoria = Category, subcategoria = `Sub-Category`,
+            ventas = Sales, cantidad = Quantity, descuento = Discount,
+            utilidad = Profit, envio = `Shipping Cost`) %>%
+  mutate(mercado = relevel(factor(mercado), "US"),                 # base: Estados Unidos
+         categoria = relevel(factor(categoria), "Office Supplies"),# base: Office Supplies
+         margen = utilidad / ventas, util_neta = utilidad - envio)
+
+calidad <- tibble(
+  control = c("Filas (hoja Orders)", "Valores faltantes (sin contar código postal)",
+              "Ventas, cantidad o costo de envío menores o iguales a 0", "Descuentos fuera de [0, 1]",
+              "Fecha mínima", "Fecha máxima", "Días del calendario", "Días con pedidos", "Días sin pedidos (todos domingos)",
+              "Pedidos distintos"),
+  resultado = c(num(nrow(bruto)), as.character(sum(is.na(select(bruto, -`Postal Code`)))),
+                as.character(sum(d$ventas <= 0 | d$cantidad <= 0 | d$envio <= 0)),
+                as.character(sum(d$descuento < 0 | d$descuento > 1)),
+                as.character(min(d$fecha)), as.character(max(d$fecha)),
+                num(as.numeric(max(d$fecha) - min(d$fecha)) + 1), num(n_distinct(d$fecha)),
+                num(as.numeric(max(d$fecha) - min(d$fecha)) + 1 - n_distinct(d$fecha)), num(n_distinct(d$id_pedido))))
+guardar_tabla(calidad, "tabla_00_calidad")
+
+ped <- d %>% group_by(id_pedido, fecha) %>% summarise(ventas = sum(ventas), .groups = "drop")
+ped_grandes <- ped %>% filter(ventas >= 10000) %>% arrange(desc(ventas))
+write_csv(ped_grandes, "tablas/tabla_A3_pedidos_extraordinarios.csv")
+
+
 
  
