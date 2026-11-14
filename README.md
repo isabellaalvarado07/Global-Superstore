@@ -1,11 +1,11 @@
 # Global-Superstore
-# Global Superstore es una empresa minorista que entre 2011 y 2014 vendió muebles, tecnología y suministros de oficina en siete mercados: Asia-Pacífico (APAC), Europa (EU), Estados Unidos (US), América Latina (LATAM), Europa del Este y Medio Oriente (EMEA), África y Canadá. 
+# Global Superstore es una empresa minorista que entre 2011 y 2014 vendió muebles, tecnología y suministros de oficina en siete mercados: Asia-Pacífico (APAC), Europa (EU), Estados Unidos (US), América Latina (LATAM), Europa del Este y Medio Oriente (EMEA), África y Canadá
 
 Pregunta problema de la investigación 
 
 ¿En qué medida la política de descuentos, los costos de envío y la mezcla de categorías de producto explican la rentabilidad (Profit) y el nivel de ventas (Sales) de Global Superstore, y a partir de qué nivel de descuento la operación empieza a destruir valor?
 
-Objetivos
+Objetivos del análisis 
 
 1. Estimar cuánto cambian las ventas (Sales) y las órdenes (Orders) diarias frente al descuento, con y sin controles, e interpretar cada coeficiente (cuatro estimaciones).
 2. Medir cuánto aportan el costo de envío, la mezcla de categorías y el calendario a la explicación de las ventas, y establecer en qué mercado y en qué categoría se vende más.
