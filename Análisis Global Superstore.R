@@ -209,6 +209,11 @@ m3 <- lm(ln_ordenes ~ descuento, dia)
 m4 <- lm(as.formula(paste("ln_ordenes ~ descuento +", ctrl)), dia)
 modelos <- list(`(1) Sales` = m1, `(2) Sales + controles` = m2, `(3) Orders` = m3, `(4) Orders + controles` = m4)
 
+# Anexo: panel día x mercado (compara cada mercado con Estados Unidos)
+ctrl_p <- sub("ln_envio", "ln_envio + mercado", ctrl)
+mp_v <- lm(as.formula(paste("ln_ventas  ~ descuento +", ctrl_p)), dia_m)
+mp_o <- lm(as.formula(paste("ln_ordenes ~ descuento +", ctrl_p)), dia_m)
+
 
 
 
