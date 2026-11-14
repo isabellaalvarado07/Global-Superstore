@@ -152,6 +152,15 @@ f3b <- ggplot(cal_dia, aes(dia_sem, m / 1000)) + geom_col(fill = OI["naranja"], 
   labs(x = NULL, y = NULL, title = "Por día de la semana") + theme(axis.text.x = element_text(angle = 35, hjust = 1))
 guardar_fig(f3a + f3b + plot_layout(widths = c(1.6, 1)), "fig_03_calendario", h = 3.8)
 
+dm <- d %>% group_by(mercado, categoria) %>% summarise(ventas = sum(ventas), utilidad = sum(utilidad), .groups = "drop")
+orden_m <- dm %>% group_by(mercado) %>% summarise(v = sum(ventas)) %>% arrange(v) %>% pull(mercado)
+f4 <- ggplot(dm, aes(factor(mercado, levels = orden_m), ventas / 1e6, fill = categoria)) +
+  geom_col(width = 0.7, colour = "white", linewidth = 0.4) + coord_flip() +
+  scale_fill_manual(values = unname(OI[c("azul", "naranja", "verde")]), name = NULL) +
+  labs(x = NULL, y = "Ventas acumuladas 2011-2014 (millones de USD)", title = "Dónde y qué categoría vende más") +
+  theme(legend.position = "top")
+guardar_fig(f4, "fig_04_mercado_categoria", h = 4)
+
 
 
 
