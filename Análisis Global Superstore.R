@@ -273,6 +273,25 @@ b_desc <- sapply(modelos, function(m) unname(coef(m)["descuento"]))
 efectos <- tibble(modelo = names(modelos), beta_desc = b_desc, efecto_10pp = efecto(b_desc, 0.10),
                   beta_envio = c(NA, coef(m2)["ln_envio"], NA, coef(m4)["ln_envio"]))
 
+# =============================================================================
+# PUNTO 7. Análisis robustos
+# =============================================================================
+diagnostico <- function(m, titulo) {
+  g <- tibble(real = model.response(model.frame(m)), pred = fitted(m), res = resid(m)) %>% mutate(e2 = res^2)
+  p1 <- ggplot(g, aes(pred, real)) + geom_point(alpha = 0.35, size = 0.8, colour = OI["azul"]) +
+    geom_abline(colour = OI["rojo"], linewidth = 0.6) + labs(x = "Predicho (ln)", y = "Real (ln)", title = "Predichos vs reales")
+  p2 <- ggplot(g, aes(pred, e2)) + geom_point(alpha = 0.35, size = 0.8, colour = OI["naranja"]) +
+    geom_smooth(method = "loess", se = FALSE, colour = OI["rojo"], linewidth = 0.7, formula = y ~ x) +
+    labs(x = "Predicho (ln)", y = "Error al cuadrado", title = "Errores al cuadrado")
+  p3 <- ggplot(g, aes(res)) + geom_histogram(aes(y = after_stat(density)), bins = 45, fill = OI["verde"], colour = "white", linewidth = 0.1) +
+    stat_function(fun = dnorm, args = list(mean = 0, sd = sd(g$res)), colour = OI["rojo"], linewidth = 0.7) +
+    labs(x = "Residuo", y = "Densidad", title = "Histograma de residuos")
+  p4 <- ggplot(g, aes(sample = res)) + stat_qq(size = 0.8, alpha = 0.4, colour = OI["azul"]) + stat_qq_line(colour = OI["rojo"]) +
+    labs(x = "Cuantiles teóricos", y = "Cuantiles de los residuos", title = "Gráfico cuantil-cuantil")
+  (p1 + p2) / (p3 + p4) + plot_annotation(title = titulo)
+}
+guardar_fig(diagnostico(m2, "Estimación 2: Sales con controles"), "fig_06_robustez_sales", w = 8, h = 7)
+guardar_fig(diagnostico(m4, "Estimación 4: Orders con controles"), "fig_07_robustez_orders", w = 8, h = 7)
 
 
 
