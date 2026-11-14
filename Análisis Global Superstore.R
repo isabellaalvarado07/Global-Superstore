@@ -188,6 +188,15 @@ f5b <- ggplot(dia, aes(ln_ventas)) + geom_histogram(bins = 50, fill = OI["verde"
 guardar_fig(f5a + f5b, "fig_05_distribucion_ventas", h = 3.8)
 asim <- c(niveles = skew(dia$ventas), logs = skew(dia$ln_ventas))
 
+# =============================================================================
+# PUNTO 4. Categorías base (con qué se compara cada beta)
+# =============================================================================
+# Bases: enero, lunes, 2011, Office Supplies; US en el panel por mercado.
+base_tab <- tibble(Variable = c("Mes del pedido", "Día de la semana", "Año", "Categoría (participación en ventas)", "Mercado (panel del anexo)"),
+                   `Categoría base` = c("Enero", "Lunes", "2011", "Office Supplies", "US"),
+                   `Betas estimados` = c("11", "6", "3", "2", "6"))
+guardar_tabla(base_tab, "tabla_04_categorias_base")
+
 
 
 
