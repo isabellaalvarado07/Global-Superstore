@@ -179,6 +179,16 @@ guardar_tabla(t_categoria %>% mutate(`Ventas (USD)` = num(`Ventas (USD)`), `% de
                                      `Descuento medio` = pct(`Descuento medio`),
                                      `% de líneas con pérdida` = pct(`% de líneas con pérdida`)), "tabla_03_categorias")
 
+# Distribución de las ventas diarias en dólares y en logaritmo
+skew <- function(x) mean(((x - mean(x)) / sd(x))^3)
+f5a <- ggplot(dia, aes(ventas)) + geom_histogram(bins = 50, fill = OI["azul"], colour = "white", linewidth = 0.1) +
+  scale_x_continuous(labels = label_comma()) + labs(x = "Ventas diarias (USD)", y = "Días", title = "Ventas diarias en dólares")
+f5b <- ggplot(dia, aes(ln_ventas)) + geom_histogram(bins = 50, fill = OI["verde"], colour = "white", linewidth = 0.1) +
+  labs(x = "ln(ventas diarias)", y = "Días", title = "Ventas diarias en logaritmo")
+guardar_fig(f5a + f5b, "fig_05_distribucion_ventas", h = 3.8)
+asim <- c(niveles = skew(dia$ventas), logs = skew(dia$ln_ventas))
+
+
 
 
 
