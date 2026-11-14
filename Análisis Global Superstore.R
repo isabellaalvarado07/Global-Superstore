@@ -95,6 +95,18 @@ dia <- d %>% group_by(fecha) %>%
          ln_ventas = log(ventas), ln_ordenes = log(ordenes), ln_envio = log(envio_medio))
 
 
+# Panel día x mercado (para comparar mercados con Estados Unidos como base)
+dia_m <- d %>% group_by(fecha, mercado) %>%
+  summarise(descuento = weighted.mean(descuento, ventas),
+            part_tec = sum(ventas[categoria == "Technology"]) / sum(ventas),
+            part_mue = sum(ventas[categoria == "Furniture"]) / sum(ventas),
+            ordenes = n_distinct(id_pedido), lineas = n(), envio = sum(envio), ventas = sum(ventas), .groups = "drop") %>%
+  mutate(envio_medio = envio / lineas, mes = factor(month(fecha), 1:12, meses), anio = factor(year(fecha)),
+         dia_sem = factor(dias_sem[wday(fecha, week_start = 1)], dias_sem),
+         pedido_grande = as.integer(fecha %in% ped_grandes$fecha), black_friday = as.integer(fecha %in% fechas_bf),
+         ln_ventas = log(ventas), ln_ordenes = log(ordenes), ln_envio = log(envio_medio))
+
+
 
 
  
