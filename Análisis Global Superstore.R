@@ -126,6 +126,17 @@ t_desc <- bind_rows(
 guardar_tabla(t_desc, "tabla_01_descriptiva")
 pct_dias_menor_20k <- mean(dia$ventas < 20000)
 
+# =============================================================================
+# PUNTO 3. Gráficas: tiempo (semanal y diaria), calendario, mercados y categorías
+# =============================================================================
+sem <- dia %>% mutate(semana = floor_date(fecha, "week", week_start = 1)) %>%
+  group_by(semana) %>% summarise(ventas = sum(ventas), ordenes = sum(ordenes), .groups = "drop")
+f1a <- ggplot(sem, aes(semana, ventas / 1000)) + geom_line(colour = OI["azul"], linewidth = 0.6) +
+  labs(x = NULL, y = "Miles de USD", title = "Ventas por semana, 2011-2014")
+f1b <- ggplot(sem, aes(semana, ordenes)) + geom_line(colour = OI["verde"], linewidth = 0.6) +
+  labs(x = NULL, y = "Órdenes", title = "Órdenes por semana, 2011-2014")
+guardar_fig(f1a / f1b, "fig_01_serie_semanal", h = 6)
+
 
 
 
