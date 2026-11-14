@@ -381,5 +381,153 @@ a_margen <- aporte("margen", list(`Descuento (lineal y cuadrático)` = c("d10", 
 t_aporte <- bind_rows(a_ventas, a_ord, a_margen) %>% select(Variable, everything())
 guardar_tabla(t_aporte %>% mutate(across(where(is.numeric), ~ pct(.x))), "tabla_11_aporte_r2")
 
+# =============================================================================
+# PUNTO 8. ¿A partir de qué nivel de descuento se destruye valor?
+# =============================================================================
+niv_desc <- c("0%", "(0,10]", "(10,20]", "(20,30]", "(30,40]", "(40,50]", ">50%")
+d <- d %>% mutate(tramo = cut(descuento, c(-Inf, 0, .10, .20, .30, .40, .50, Inf), labels = niv_desc))
+t_tramo <- d %>% group_by(tramo) %>%
+  summarise(Líneas = n(), Ventas = sum(ventas), Utilidad = sum(utilidad), Margen = sum(utilidad) / sum(ventas),
+            `Líneas con pérdida` = mean(utilidad < 0), `Margen después de envío` = sum(util_neta) / sum(ventas), .groups = "drop")
+guardar_tabla(t_tramo %>% transmute(`Tramo de descuento` = tramo, Líneas = num(Líneas), `Ventas (USD)` = num(Ventas),
+                                    `Utilidad (USD)` = num(Utilidad), Margen = pct(Margen), `Líneas con pérdida` = pct(`Líneas con pérdida`),
+                                    `Margen después de envío` = pct(`Margen después de envío`)), "tabla_12_tramos_descuento")
+
+# Nivel exacto de descuento (niveles con al menos 100 líneas)
+nivel <- d %>% group_by(descuento) %>% filter(n() >= 100) %>%
+  summarise(lineas = n(), margen = sum(utilidad) / sum(ventas), margen_neto = sum(util_neta) / sum(ventas), .groups = "drop")
+# Primer nivel desde el cual todos los niveles superiores tienen margen negativo
+desde_negativo <- function(x, m) { for (i in seq_along(x)) if (x[i] > 0 && all(m[i:length(m)] < 0)) return(x[i]); NA_real_ }
+cruce_base <- desde_negativo(nivel$descuento, nivel$margen)
+cruce_neto <- desde_negativo(nivel$descuento, nivel$margen_neto)
+
+# Parábola del margen: a + b1*d10 + b2*d10^2 (d10 = descuento en decenas de puntos)
+raiz_cuad <- function(dat) {
+  f <- lm(margen ~ d10 + I(d10^2), dat); b <- coef(f)
+  r <- (-b[2] + c(1, -1) * sqrt(b[2]^2 - 4 * b[3] * b[1])) / (2 * b[3]); min(r[r > 0]) / 10
+}
+cuad_m <- lm(margen ~ d10 + I(d10^2), mod_m)
+equilibrio <- raiz_cuad(mod_m)
+mod_m <- mod_m %>% mutate(margen_neto = util_neta / ventas)
+raiz_neta <- function(dat) {
+  f <- lm(margen_neto ~ d10 + I(d10^2), dat); b <- coef(f)
+  r <- (-b[2] + c(1, -1) * sqrt(b[2]^2 - 4 * b[3] * b[1])) / (2 * b[3]); min(r[r > 0]) / 10
+}
+equilibrio_neto <- raiz_neta(mod_m)
+
+# Intervalo por bootstrap de pedidos (remuestrea pedidos completos)
+ids <- unique(d$id_pedido); idx_por_ped <- split(seq_len(nrow(mod_m)), mod_m$id_pedido)
+B <- 300
+boot <- replicate(B, { s <- sample(ids, length(ids), replace = TRUE); dat <- mod_m[unlist(idx_por_ped[s], use.names = FALSE), ]
+                       c(raiz_cuad(dat), raiz_neta(dat)) })
+ic <- apply(boot, 1, quantile, c(0.025, 0.975))
+t_equilibrio <- tibble(
+  Medida = c("Margen por línea, antes de envío", "Margen por línea, después de envío"),
+  `Nivel desde el que todos los niveles superiores pierden` = pct(c(cruce_base, cruce_neto), 0),
+  `Punto de equilibrio (ajuste cuadrático)` = pct(c(equilibrio, equilibrio_neto), 1),
+  `IC 95% (bootstrap de pedidos)` = c(paste0(pct(ic[1, 1], 1), " a ", pct(ic[2, 1], 1)), paste0(pct(ic[1, 2], 1), " a ", pct(ic[2, 2], 1))))
+guardar_tabla(t_equilibrio, "tabla_13_punto_equilibrio")
+
+f6 <- ggplot(nivel %>% pivot_longer(c(margen, margen_neto), names_to = "tipo", values_to = "m") %>%
+               mutate(tipo = dplyr::recode(tipo, margen = "Antes de envío", margen_neto = "Después de envío")),
+             aes(descuento, m, colour = tipo)) +
+  geom_hline(yintercept = 0, colour = "grey40") + geom_line(aes(group = tipo), linewidth = 0.6) + geom_point(aes(size = lineas), alpha = 0.85) +
+  geom_vline(xintercept = c(cruce_neto, cruce_base), linetype = "dashed", colour = "grey55") +
+  scale_x_continuous(labels = percent_format(accuracy = 1)) + scale_y_continuous(labels = percent_format(accuracy = 1)) +
+  scale_colour_manual(values = unname(OI[c("azul", "rojo")]), name = NULL) + scale_size_area(max_size = 5, guide = "none") +
+  labs(x = "Descuento aplicado a la línea", y = "Margen (utilidad / ventas)",
+       title = "El margen cruza cero hacia 27% antes de envío y hacia 20% después de envío",
+       subtitle = "Tamaño del punto: número de líneas. Solo niveles con al menos 100 líneas.") +
+  theme(legend.position = "top")
+guardar_fig(f6, "fig_09_margen_por_descuento", h = 4.8)
+
+f7 <- d %>% group_by(tramo, categoria) %>% summarise(m = sum(utilidad) / sum(ventas), .groups = "drop") %>%
+  ggplot(aes(tramo, m, fill = categoria)) + geom_col(position = position_dodge(width = 0.8), width = 0.75) +
+  geom_hline(yintercept = 0, colour = "grey40") + scale_y_continuous(labels = percent_format(accuracy = 1)) +
+  scale_fill_manual(values = unname(OI[c("azul", "naranja", "verde")]), name = NULL) +
+  labs(x = "Tramo de descuento", y = "Margen", title = "Margen por tramo de descuento y categoría") + theme(legend.position = "top")
+guardar_fig(f7, "fig_10_tramo_categoria", h = 4.2)
+
+# Envío: tamaño y relación con el nivel de ventas
+envio_tot <- tibble(ventas = sum(d$ventas), utilidad = sum(d$utilidad), envio = sum(d$envio),
+                    margen = sum(d$utilidad) / sum(d$ventas), margen_neto = sum(d$util_neta) / sum(d$ventas),
+                    pct_envio = sum(d$envio) / sum(d$ventas), pct_perdida = mean(d$utilidad < 0),
+                    margen_sin_desc = sum(d$utilidad[d$descuento == 0]) / sum(d$ventas[d$descuento == 0]),
+                    margen_desc30 = sum(d$utilidad[d$descuento >= .3]) / sum(d$ventas[d$descuento >= .3]),
+                    cor_ln_envio_ln_ventas = cor(log(d$envio), log(d$ventas)))
+write_csv(envio_tot, "tablas/res_envio_totales.csv")
+t_mix <- d %>% group_by(Categoría = categoria, Subcategoría = subcategoria) %>%
+  summarise(Ventas = sum(ventas), Utilidad = sum(utilidad), Margen = sum(utilidad) / sum(ventas), .groups = "drop") %>%
+  arrange(desc(Ventas))
+write_csv(t_mix, "tablas/tabla_A2_subcategorias.csv")
+
+
+# ¿El descuento compra volumen? Cantidad por línea contra descuento, con efectos fijos de producto
+el <- d %>% group_by(id_producto) %>% filter(n() >= 5) %>% mutate(lq = log(cantidad) - mean(log(cantidad)), dd = descuento - mean(descuento)) %>% ungroup()
+f_el <- lm(lq ~ 0 + dd, el)
+elasticidad <- tibble(beta = unname(coef(f_el)), ee = summary(f_el)$coef[1, 2], p = summary(f_el)$coef[1, 4], efecto_10pp = efecto(unname(coef(f_el)), 0.1), n = nrow(el))
+write_csv(elasticidad, "tablas/res_cantidad_vs_descuento.csv")
+
+# ¿El costo de envío ya está descontado en Profit? Costo implícito por unidad = (ventas - utilidad) / cantidad
+cu <- d %>% mutate(cu = (ventas - utilidad) / cantidad, eu = envio / cantidad) %>% group_by(id_producto) %>% filter(n() >= 5) %>%
+  mutate(cv = sd(cu) / mean(cu)) %>% ungroup()
+cu_est <- cu %>% filter(cv < 0.01) %>% group_by(id_producto) %>% mutate(dc = cu - mean(cu), de = eu - mean(eu)) %>% ungroup()
+chequeo_envio <- tibble(lineas_estables = nrow(cu_est), lineas_total = nrow(cu), cor_costo_envio = cor(cu_est$dc, cu_est$de))
+write_csv(chequeo_envio, "tablas/res_chequeo_envio_en_profit.csv")
+
+# =============================================================================
+# PUNTO 9. ¿Importa el país? Panel día x país (países con al menos 500 pedidos)
+# =============================================================================
+sg <- function(x, d = 1) paste0(ifelse(x >= 0, "+", "-"), formatC(abs(x), format = "f", digits = d), "%")
+paises <- d %>% group_by(pais, mercado) %>% summarise(pedidos = n_distinct(id_pedido), .groups = "drop") %>% filter(pedidos >= 500)
+dia_p <- d %>% filter(pais %in% paises$pais) %>% group_by(fecha, pais) %>%
+  summarise(descuento = weighted.mean(descuento, ventas),
+            part_tec = sum(ventas[categoria == "Technology"]) / sum(ventas),
+            part_mue = sum(ventas[categoria == "Furniture"]) / sum(ventas),
+            ordenes = n_distinct(id_pedido), lineas = n(), envio = sum(envio), ventas = sum(ventas), .groups = "drop") %>%
+  mutate(mercado = relevel(factor(paises$mercado[match(pais, paises$pais)]), "US"), pais = relevel(factor(pais), "United States"),
+         envio_medio = envio / lineas, mes = factor(month(fecha), 1:12, meses), anio = factor(year(fecha)),
+         dia_sem = factor(dias_sem[wday(fecha, week_start = 1)], dias_sem),
+         pedido_grande = as.integer(fecha %in% ped_grandes$fecha), black_friday = as.integer(fecha %in% fechas_bf),
+         ln_ventas = log(ventas), ln_ordenes = log(ordenes), ln_envio = log(envio_medio))
+f_pais <- function(y, extra) lm(as.formula(paste(y, "~ descuento +", sub("ln_envio", paste("ln_envio", extra), ctrl, fixed = TRUE))), dia_p)
+f_sin <- function(y) lm(as.formula(paste(y, "~ descuento +", ctrl)), dia_p)
+p_o <- f_pais("ln_ordenes", "+ pais"); p_v <- f_pais("ln_ventas", "+ pais")
+q_o <- f_pais("ln_ordenes", "+ mercado"); q_v <- f_pais("ln_ventas", "+ mercado")
+s_o <- f_sin("ln_ordenes"); s_v <- f_sin("ln_ventas")
+
+es <- c("United States" = "Estados Unidos", "Australia" = "Australia", "Mexico" = "México", "France" = "Francia", "China" = "China",
+        "Germany" = "Alemania", "India" = "India", "Brazil" = "Brasil", "United Kingdom" = "Reino Unido", "Indonesia" = "Indonesia",
+        "Turkey" = "Turquía", "Italy" = "Italia")
+efecto_pais <- function(m)
+  tidy(m, conf.int = TRUE) %>% filter(grepl("^pais", term)) %>%
+    transmute(pais = sub("^pais", "", term), ef = 100 * (exp(estimate) - 1), lo = 100 * (exp(conf.low) - 1), hi = 100 * (exp(conf.high) - 1), p = p.value)
+eo <- efecto_pais(p_o); ev <- efecto_pais(p_v)
+t_pais <- paises %>% mutate(pct_pedidos = pedidos / n_distinct(d$id_pedido)) %>% arrange(desc(pedidos)) %>%
+  left_join(eo, by = "pais") %>% left_join(ev, by = "pais", suffix = c("_o", "_v")) %>%
+  transmute(País = es[pais], Mercado = as.character(mercado), Pedidos = num(pedidos), `% de pedidos` = pct(pct_pedidos, 1),
+            `Órdenes vs EE. UU.` = ifelse(is.na(ef_o), "base", paste0(sg(ef_o, 0), estrellas(p_o))),
+            `Ventas vs EE. UU.` = ifelse(is.na(ef_v), "base", paste0(sg(ef_v, 0), estrellas(p_v))))
+guardar_tabla(t_pais, "tabla_14_paises")
+
+p_f <- function(a, b) anova(a, b)[["Pr(>F)"]][2]
+fp <- function(p) ifelse(p < 1e-16, "<1e-16", formatC(p, format = "e", digits = 1))
+t_pais_test <- tibble(
+  Especificación = c("Sin país ni mercado", "Con mercado", "Con país"),
+  `R² ajustado (órdenes)` = formatC(c(summary(s_o)$adj.r.squared, summary(q_o)$adj.r.squared, summary(p_o)$adj.r.squared), format = "f", digits = 3),
+  `R² ajustado (ventas)` = formatC(c(summary(s_v)$adj.r.squared, summary(q_v)$adj.r.squared, summary(p_v)$adj.r.squared), format = "f", digits = 3),
+  `Valor p de la prueba F (órdenes)` = c("", fp(p_f(s_o, q_o)), fp(p_f(q_o, p_o))))
+guardar_tabla(t_pais_test, "tabla_15_pais_vs_mercado")
+
+fig_pais <- eo %>% mutate(nombre = es[pais]) %>%
+  ggplot(aes(x = ef, y = reorder(nombre, ef))) +
+  geom_vline(xintercept = 0, colour = "grey60", linewidth = 0.4) +
+  geom_pointrange(aes(xmin = lo, xmax = hi), colour = OI[["azul"]], size = 0.5) +
+  labs(title = "Órdenes por día frente a Estados Unidos, por país",
+       subtitle = "Efecto en % con intervalo de 95%; con controles de calendario, envío, mezcla y descuento",
+       x = "Diferencia en órdenes por día (%)", y = NULL)
+guardar_fig(fig_pais, "fig_11_paises_ordenes")
+
+
 
  
