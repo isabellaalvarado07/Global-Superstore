@@ -74,6 +74,10 @@ guardar_tabla(calidad, "tabla_00_calidad")
 ped <- d %>% group_by(id_pedido, fecha) %>% summarise(ventas = sum(ventas), .groups = "drop")
 ped_grandes <- ped %>% filter(ventas >= 10000) %>% arrange(desc(ventas))
 write_csv(ped_grandes, "tablas/tabla_A3_pedidos_extraordinarios.csv")
+# Eventos: (a) día con un pedido de $10,000 o más; (b) Black Friday y Cyber Monday
+bf <- function(y) { nov <- as.Date(paste0(y, "-11-01")); jue <- nov + ((4 - wday(nov, week_start = 1)) %% 7) + 21; jue + 1 }
+fechas_bf <- c(bf(2011:2014), bf(2011:2014) + 3)
+
 
 
 
