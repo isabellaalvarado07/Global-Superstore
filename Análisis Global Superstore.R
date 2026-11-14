@@ -293,6 +293,93 @@ diagnostico <- function(m, titulo) {
 guardar_fig(diagnostico(m2, "Estimación 2: Sales con controles"), "fig_06_robustez_sales", w = 8, h = 7)
 guardar_fig(diagnostico(m4, "Estimación 4: Orders con controles"), "fig_07_robustez_orders", w = 8, h = 7)
 
+# Real vs predicho en el tiempo (semanal, en dólares y en órdenes)
+tiempo_pred <- function(m, y_nivel, etiqueta_y) {
+  z <- dia %>% mutate(pred = exp(fitted(m)) * mean(exp(resid(m))), real = .data[[y_nivel]], semana = floor_date(fecha, "week", week_start = 1)) %>%
+    group_by(semana) %>% summarise(Real = sum(real), Predicho = sum(pred), .groups = "drop") %>% pivot_longer(c(Real, Predicho))
+  ggplot(z, aes(semana, value / ifelse(y_nivel == "ventas", 1000, 1), colour = name)) + geom_line(linewidth = 0.55) +
+    scale_colour_manual(values = c(Real = "grey35", Predicho = unname(OI["rojo"])), name = NULL) +
+    labs(x = NULL, y = etiqueta_y) + theme(legend.position = "top")
+}
+guardar_fig(tiempo_pred(m2, "ventas", "Ventas semanales (miles de USD)") / tiempo_pred(m4, "ordenes", "Órdenes semanales"),
+            "fig_08_real_vs_predicho_tiempo", h = 6.5)
+
+normalidad <- function(m, nm) {
+  r <- resid(m); z <- as.numeric(scale(r))
+  tibble(Modelo = nm, Asimetría = mean(z^3), Curtosis = mean(z^4), `Jarque-Bera (p)` = jarque.bera.test(r)$p.value,
+         `Shapiro-Wilk (p)` = shapiro.test(r)$p.value, `Kolmogorov-Smirnov (p)` = suppressWarnings(ks.test(z, "pnorm"))$p.value, `Breusch-Pagan (p)` = bptest(m)$p.value)
+}
+t_norm <- bind_rows(normalidad(m1, "(1) Sales"), normalidad(m2, "(2) Sales + controles"), normalidad(m3, "(3) Orders"), normalidad(m4, "(4) Orders + controles"))
+fp <- function(p) ifelse(p < 0.001, "<0.001", formatC(p, format = "f", digits = 3))
+guardar_tabla(t_norm %>% mutate(Asimetría = num(Asimetría, 2), Curtosis = num(Curtosis, 2), across(contains("(p)"), fp)), "tabla_06_normalidad")
+
+vif_m <- function(m) { v <- car::vif(m); tibble(variable = rownames(v), gvif_aj = v[, 3]) }
+t_vif <- full_join(vif_m(m2) %>% rename(`Estimación 2` = gvif_aj), vif_m(m4) %>% rename(`Estimación 4` = gvif_aj), by = "variable") %>%
+  mutate(variable = dplyr::recode(variable, descuento = "Descuento", ln_envio = "ln(envío medio por línea)", part_tec = "Part. Technology",
+                                  part_mue = "Part. Furniture", mes = "Mes", dia_sem = "Día de la semana", anio = "Año",
+                                  pedido_grande = "Pedido grande", black_friday = "Black Friday"))
+guardar_tabla(t_vif %>% mutate(across(where(is.numeric), ~ ifelse(is.na(.x), "", num(.x, 2)))), "tabla_07_vif")
+
+hc3 <- function(m, nm) { r <- coeftest(m, vcov. = vcovHC(m, type = "HC3")); tibble(modelo = nm, termino = etiqueta(rownames(r)), coef = r[, 1], ee_hc3 = r[, 2], p_hc3 = r[, 4]) }
+t_hc3 <- bind_rows(hc3(m2, "(2) Sales + controles"), hc3(m4, "(4) Orders + controles")) %>%
+  left_join(coefs %>% select(modelo, termino, ee_clasico = ee, p_clasico = p), by = c("modelo", "termino"))
+guardar_tabla(t_hc3 %>% filter(termino %in% c("Descuento (0 a 1)", "ln(envío medio por línea)", "Día con pedido de $10,000 o más")) %>%
+                transmute(Estimación = modelo, Variable = termino, Coeficiente = num(coef, 3), `EE clásico` = num(ee_clasico, 4),
+                          `EE robusto (HC3)` = num(ee_hc3, 4), `p (HC3)` = fp(p_hc3)), "tabla_08_errores_robustos")
+
+# Validación: 80% de los días para estimar y 20% para evaluar
+fuera <- function(formula, nm, y) {
+  idx <- sample(nrow(dia), 0.8 * nrow(dia)); trn <- dia[idx, ]; tst <- dia[-idx, ]
+  m <- lm(formula, trn); yy <- tst[[y]]; yh <- predict(m, tst)
+  tibble(Modelo = nm, `R² en entrenamiento` = summary(m)$r.squared, `R² en prueba` = 1 - sum((yy - yh)^2) / sum((yy - mean(yy))^2), `RMSE en prueba (ln)` = sqrt(mean((yy - yh)^2)))
+}
+t_fuera <- bind_rows(fuera(formula(m1), "(1) Sales", "ln_ventas"), fuera(formula(m2), "(2) Sales + controles", "ln_ventas"),
+                     fuera(formula(m3), "(3) Orders", "ln_ordenes"), fuera(formula(m4), "(4) Orders + controles", "ln_ordenes"))
+guardar_tabla(t_fuera %>% mutate(across(where(is.numeric), ~ num(.x, 3))), "tabla_09_fuera_de_muestra")
+guardar_tabla(t_eventos %>% mutate(across(where(is.numeric), ~ num(.x, 3))), "tabla_10_efecto_eventos")
+# Estimación 2 en dólares contra logaritmo
+m2_niv <- lm(as.formula(paste("ventas ~ descuento +", sub("ln_envio", "envio_medio", ctrl))), dia)
+sk <- function(m) { z <- as.numeric(scale(resid(m))); c(mean(z^3), mean(z^4)) }
+t_log <- tibble(Especificación = c("Ventas diarias en dólares", "ln(ventas diarias)"),
+                `R²` = c(summary(m2_niv)$r.squared, summary(m2)$r.squared),
+                `Asimetría de residuos` = c(sk(m2_niv)[1], sk(m2)[1]), `Curtosis de residuos` = c(sk(m2_niv)[2], sk(m2)[2]),
+                `Breusch-Pagan (p)` = c(bptest(m2_niv)$p.value, bptest(m2)$p.value),
+                `Predicciones negativas` = c(sum(fitted(m2_niv) < 0), 0))
+guardar_tabla(t_log %>% mutate(across(c(`R²`, `Asimetría de residuos`, `Curtosis de residuos`), ~ num(.x, 2)), `Breusch-Pagan (p)` = fp(`Breusch-Pagan (p)`),
+                               `Predicciones negativas` = num(`Predicciones negativas`)), "tabla_10b_log_vs_niveles")
+
+
+
+# Beta del descuento al agregar controles de a un bloque
+pasos <- function(y) {
+  bl <- list(`Sin controles` = character(0), `+ Calendario (mes, día, año)` = c("mes", "dia_sem", "anio"), `+ Costo de envío` = "ln_envio",
+             `+ Mezcla de categorías` = c("part_tec", "part_mue"), `+ Eventos` = c("pedido_grande", "black_friday"))
+  acum <- character(0)
+  map_dfr(names(bl), function(b) {
+    acum <<- c(acum, bl[[b]]); f <- lm(reformulate(c("descuento", acum), y), dia); z <- summary(f)$coef["descuento", ]
+    tibble(Controles = b, Beta = z[1], EE = z[2], p = z[4], `Efecto de +10 pp (%)` = efecto(z[1], 0.1), `R²` = summary(f)$r.squared) })
+}
+t_pasos <- bind_rows(pasos("ln_ventas") %>% mutate(Y = "Sales"), pasos("ln_ordenes") %>% mutate(Y = "Orders")) %>% select(Y, everything())
+guardar_tabla(t_pasos %>% mutate(Beta = num(Beta, 3), EE = num(EE, 3), p = fp(p), `Efecto de +10 pp (%)` = num(`Efecto de +10 pp (%)`, 1), `R²` = num(`R²`, 3)), "tabla_10c_pasos_controles")
+
+# Aporte de cada bloque al R²
+aporte <- function(y, bloques, datos) {
+  acum <- character(0); r_prev <- 0
+  map_dfr(names(bloques), function(b) {
+    acum <<- c(acum, bloques[[b]]); r <- summary(lm(reformulate(acum, y), datos))$r.squared
+    out <- tibble(Bloque = b, `R² acumulado` = r, `Aporte al R²` = r - r_prev); r_prev <<- r; out })
+}
+a_ventas <- aporte("ln_ventas", list(`Descuento` = "descuento", `+ Costo de envío` = "ln_envio", `+ Mezcla de categorías` = c("part_tec", "part_mue"),
+                   `+ Calendario (mes, día, año)` = c("mes", "dia_sem", "anio"), `+ Eventos (pedido grande, Black Friday)` = c("pedido_grande", "black_friday")), dia) %>%
+  mutate(Variable = "ln(ventas diarias)")
+a_ord <- aporte("ln_ordenes", list(`Descuento` = "descuento", `+ Costo de envío` = "ln_envio", `+ Mezcla de categorías` = c("part_tec", "part_mue"),
+                   `+ Calendario (mes, día, año)` = c("mes", "dia_sem", "anio"), `+ Eventos (pedido grande, Black Friday)` = c("pedido_grande", "black_friday")), dia) %>%
+  mutate(Variable = "ln(órdenes diarias)")
+mod_m <- d %>% mutate(peso_envio = envio / ventas, d10 = descuento * 10)
+a_margen <- aporte("margen", list(`Descuento (lineal y cuadrático)` = c("d10", "I(d10^2)"), `+ Mezcla de categorías` = "categoria",
+                   `+ Mercado` = "mercado", `+ Peso del envío (envío / ventas)` = "peso_envio"), mod_m) %>% mutate(Variable = "Margen por línea de pedido")
+t_aporte <- bind_rows(a_ventas, a_ord, a_margen) %>% select(Variable, everything())
+guardar_tabla(t_aporte %>% mutate(across(where(is.numeric), ~ pct(.x))), "tabla_11_aporte_r2")
 
 
  
