@@ -74,9 +74,25 @@ guardar_tabla(calidad, "tabla_00_calidad")
 ped <- d %>% group_by(id_pedido, fecha) %>% summarise(ventas = sum(ventas), .groups = "drop")
 ped_grandes <- ped %>% filter(ventas >= 10000) %>% arrange(desc(ventas))
 write_csv(ped_grandes, "tablas/tabla_A3_pedidos_extraordinarios.csv")
+
+
 # Eventos: (a) día con un pedido de $10,000 o más; (b) Black Friday y Cyber Monday
 bf <- function(y) { nov <- as.Date(paste0(y, "-11-01")); jue <- nov + ((4 - wday(nov, week_start = 1)) %% 7) + 21; jue + 1 }
 fechas_bf <- c(bf(2011:2014), bf(2011:2014) + 3)
+
+
+# Una fila por día (se excluyen los días sin pedidos: ln(0) no existe)
+dia <- d %>% group_by(fecha) %>%
+  summarise(descuento = weighted.mean(descuento, ventas),
+            part_tec = sum(ventas[categoria == "Technology"]) / sum(ventas),
+            part_mue = sum(ventas[categoria == "Furniture"]) / sum(ventas),
+            ordenes = n_distinct(id_pedido), lineas = n(), envio = sum(envio), utilidad = sum(utilidad),
+            ventas = sum(ventas), .groups = "drop") %>%
+  mutate(envio_medio = envio / lineas,
+         mes = factor(month(fecha), 1:12, meses), anio = factor(year(fecha)),
+         dia_sem = factor(dias_sem[wday(fecha, week_start = 1)], dias_sem),
+         pedido_grande = as.integer(fecha %in% ped_grandes$fecha), black_friday = as.integer(fecha %in% fechas_bf),
+         ln_ventas = log(ventas), ln_ordenes = log(ordenes), ln_envio = log(envio_medio))
 
 
 
