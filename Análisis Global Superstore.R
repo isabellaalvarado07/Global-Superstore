@@ -198,6 +198,17 @@ base_tab <- tibble(Variable = c("Mes del pedido", "Día de la semana", "Año", "
 guardar_tabla(base_tab, "tabla_04_categorias_base")
 
 
+# =============================================================================
+# PUNTO 5. Las cuatro estimaciones   y = c + descuento + controles + error
+# =============================================================================
+# Variable dependiente en logaritmo natural: Sales (ventas diarias) y Orders (órdenes diarias)
+ctrl <- "ln_envio + part_tec + part_mue + mes + dia_sem + anio + pedido_grande + black_friday"
+m1 <- lm(ln_ventas  ~ descuento, dia)
+m2 <- lm(as.formula(paste("ln_ventas  ~ descuento +", ctrl)), dia)
+m3 <- lm(ln_ordenes ~ descuento, dia)
+m4 <- lm(as.formula(paste("ln_ordenes ~ descuento +", ctrl)), dia)
+modelos <- list(`(1) Sales` = m1, `(2) Sales + controles` = m2, `(3) Orders` = m3, `(4) Orders + controles` = m4)
+
 
 
 
