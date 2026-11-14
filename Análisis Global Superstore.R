@@ -214,6 +214,15 @@ ctrl_p <- sub("ln_envio", "ln_envio + mercado", ctrl)
 mp_v <- lm(as.formula(paste("ln_ventas  ~ descuento +", ctrl_p)), dia_m)
 mp_o <- lm(as.formula(paste("ln_ordenes ~ descuento +", ctrl_p)), dia_m)
 
+etiqueta <- function(t) {
+  t <- sub("^mercado", "Mercado: ", t); t <- sub("^mes", "Mes: ", t); t <- sub("^dia_sem", "Día: ", t); t <- sub("^anio", "Año: ", t)
+  t <- dplyr::recode(t, `(Intercept)` = "Constante", descuento = "Descuento (0 a 1)", ln_envio = "ln(envío medio por línea)",
+         part_mue = "Furniture (participación; base Office Supplies)", part_tec = "Technology (participación; base Office Supplies)",
+         pedido_grande = "Día con pedido de $10,000 o más", black_friday = "Black Friday o Cyber Monday")
+  t
+}
+
+
 
 
 
